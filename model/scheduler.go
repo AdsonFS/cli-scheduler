@@ -16,20 +16,20 @@ type Scheduler struct {
 }
 
 func NewScheduler(quantum int) *Scheduler {
-  Table := NewTableWithStyle()
-  Table.SetRows([]table.Row{})
+	Table := NewTableWithStyle()
+	Table.SetRows([]table.Row{})
 
-  s := &Scheduler{
-    Table:        Table,
+	s := &Scheduler{
+		Table:        Table,
 		processQueue: make([]*Process, 0),
 		quantum:      quantum,
-    stopChan:     make(chan struct{}),
+		stopChan:     make(chan struct{}),
 	}
 
-  for i := 1; i < 8; i++ {
-    s.addProcess(NewProcess(i, rand.Intn(10)+3))
-  }
-  return s
+	for i := 1; i < 8; i++ {
+		s.addProcess(NewProcess(i, rand.Intn(10)+3))
+	}
+	return s
 }
 
 func (s *Scheduler) Start() {
@@ -46,12 +46,21 @@ func (s *Scheduler) Start() {
 			}
 		}
 	}()
+
+	go func() {
+		// time.Sleep((rand.Intn(5) + 3) * int(time.Second))
+    var sleep time.Duration = time.Duration(rand.Intn(5) + 3)
+    time.Sleep(sleep * time.Second)
+		for i := 9; i < 16; i++ {
+			s.addProcess(NewProcess(i, rand.Intn(10)+3))
+		}
+		s.Table.SetRows(s.toRows())
+	}()
 }
 
 func (s *Scheduler) stop() {
 	close(s.stopChan)
 }
-
 
 func (s *Scheduler) addProcess(process *Process) {
 	s.processQueue = append(s.processQueue, process)
@@ -119,16 +128,14 @@ func (s *Scheduler) runProcess() {
 
 	minTime := min(s.currentProcess.TimeRemaining, s.quantum)
 	for _, process := range s.processQueue {
-		if process != s.currentProcess {
 			process.TimeInQueue++
-		}
 	}
 
 	removed := false
 	for i := 0; i < minTime; i++ {
-    time.Sleep(time.Second)
+		time.Sleep(time.Second)
 		s.currentProcess.TimeRemaining--
-    s.Table.SetRows(s.toRows())
+		s.Table.SetRows(s.toRows())
 		if s.currentProcess.TimeRemaining == 0 {
 			s.removeProcess(s.currentProcess)
 			removed = true
@@ -138,6 +145,10 @@ func (s *Scheduler) runProcess() {
 
 	if !removed {
 		s.currentProcess.State = Ready
+
+    current := s.currentProcess
+    s.removeProcess(current)
+    s.addProcess(current)
 	}
 	s.currentProcess = nil
 	s.Table.SetRows(s.toRows())
@@ -149,4 +160,3 @@ func min(timeRemaining int, quantum int) int {
 	}
 	return quantum
 }
-
